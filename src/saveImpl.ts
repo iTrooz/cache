@@ -1,5 +1,7 @@
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
+import * as github from "@actions/github";
+import { RequestError } from "@octokit/request-error";
 
 import { Events, Inputs, State } from "./constants";
 import { IStateProvider } from "./stateProvider";
@@ -43,10 +45,38 @@ async function saveImpl(stateProvider: IStateProvider): Promise<number | void> {
 
         if (utils.isExactKeyMatch(primaryKey, restoredKey)) {
             core.info(
-                `Cache hit occurred on the primary key ${primaryKey}, not saving cache.`
+                `Cache hit occurred on the primary key ${primaryKey}`
             );
-            return;
+            if (!core.getBooleanInput(Inputs.Update)) {
+                core.info("`update` option is false. Not saving cache.");
+                return;
+            }
+            if (!process.env.GITHUB_TOKEN) {
+                core.info("`update` option is true, but env var GITHUB_TOKEN is empty. Not saving cache. Please set the GITHUB_TOKEN variable to ${{secrets.GITHUB_TOKEN}}");
+                return;
+            }
+            const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
+            const [owner, repo] = process.env.GITHUB_REPOSITORY!.split("/");
+
+            // delete existing cache
+            try {
+                await octokit.request('DELETE /repos/{owner}/{repo}/actions/caches{?key,ref}', {
+                    owner: owner,
+                    repo: repo,
+                    key: primaryKey,
+                    ref: process.env.GITHUB_REF
+                })
+                core.info("Deleted old cache");
+            } catch (e) {
+                if (e instanceof RequestError && e.status == 404) {
+                    core.info("Old cache to delete was not found");
+                } else {
+                    throw e;
+                }
+            }
         }
+
+        // save (upload) cache
 
         const cachePaths = utils.getInputAsArray(Inputs.Path, {
             required: true

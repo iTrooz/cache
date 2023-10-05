@@ -15,6 +15,10 @@ inputs:
     description: 'An optional boolean when enabled, allows windows runners to save caches that can be restored on other platforms'
     default: 'false'
     required: false
+  update:
+    description: 'Overwrite the primary cache key if hit'
+    default: 'false'
+    required: false
 runs:
   using: 'node16'
   main: '../dist/save-only/index.js'
