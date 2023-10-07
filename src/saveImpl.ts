@@ -71,7 +71,7 @@ async function saveImpl(stateProvider: IStateProvider): Promise<number | void> {
                 if (e instanceof RequestError && e.status == 404) {
                     core.info("Old cache to delete was not found");
                 } else {
-                    throw e;
+                    core.info(`Exception thrown while trying to delete old cache: ${e}`);
                 }
             }
         }
